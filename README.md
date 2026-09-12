@@ -57,6 +57,13 @@ WUWANGWO_ENV_FILE=/path/to/forget-me-not-ad-screening/backend/.env.local \
 python3 -m backend_agent
 ```
 
+上线前运行真实 Qwen Omni 协议冒烟（只发送测试文本，不上传个人音频）：
+
+```bash
+WUWANGWO_ENV_FILE=/path/to/forget-me-not-ad-screening/backend/.env.local \
+.venv/bin/python scripts/smoke_qwen.py
+```
+
 后端提供 `GET /healthz`、`GET/POST /api/agents*`、`POST /api/sessions`、`WS /api/sessions/:id/audio`、`POST /api/sessions/:id/end`、`GET /api/sessions/:id/memory`、`GET /api/memories` 与 `PATCH /api/memories/:id/retention`。Qwen adapter 会在服务端建立一对一 Realtime 连接，浏览器永远不会接触 API Key。
 
 `qwen_service/server.py` 是项目内的 WebSocket 适配器，协议参考 WuWangWo 的 `fun-audiochat-realtime`，不会修改上游示例。先安装依赖并启动：
