@@ -110,6 +110,8 @@ async def audio_socket(websocket: WebSocket, session_id: str, agent_id: str = "s
         task = asyncio.create_task(upstream())
         while True:
             message = await websocket.receive()
+            if message.get("type") == "websocket.disconnect":
+                break
             if message.get("bytes") is not None:
                 await adapter.send_pcm(message["bytes"])
             elif message.get("text"):
@@ -124,6 +126,8 @@ async def audio_socket(websocket: WebSocket, session_id: str, agent_id: str = "s
         except Exception:
             pass
     finally:
+        if 'task' in locals():
+            task.cancel()
         await adapter.close()
 
 
