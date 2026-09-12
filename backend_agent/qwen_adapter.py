@@ -29,7 +29,8 @@ class QwenOmniRealtimeAdapter:
         self.client: RealtimeClient | None = None
         # Compatibility handle used by the existing protocol smoke test.
         self.ws = None
-        self.base_prompt = compile_prompt(agent_id)
+        self.mode = "chat"
+        self.base_prompt = compile_prompt(agent_id, mode=self.mode)
         self.response_active = False
 
     async def connect(self) -> None:
@@ -115,10 +116,12 @@ class QwenOmniRealtimeAdapter:
             yield data
 
     async def compile_turn_prompt(self, turn_id: str, user_text: str, rag_loader) -> dict:
+        sleep_intent = any(term in user_text for term in ("睡不着", "失眠", "入睡", "躺下", "睡眠", "熬夜", "夜里醒", "焦虑"))
+        mode = "sleep_support" if sleep_intent else "chat"
         try:
             rag = await asyncio.wait_for(rag_loader(user_text), timeout=self.rag_timeout)
             rag_status = "ready" if rag else "empty"
         except asyncio.TimeoutError:
             rag, rag_status = "timeout_fallback", "timeout_fallback"
-        prompt = compile_prompt(self.agent_id, user_text=user_text, rag=rag if rag_status == "ready" else "")
-        return {"turn_id": turn_id, "prompt": prompt, "rag_status": rag_status}
+        prompt = compile_prompt(self.agent_id, user_text=user_text, rag=rag if rag_status == "ready" else "", mode=mode)
+        return {"turn_id": turn_id, "prompt": prompt, "rag_status": rag_status, "mode": mode}

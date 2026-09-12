@@ -110,8 +110,9 @@ async def audio_socket(websocket: WebSocket, session_id: str, agent_id: str = "s
                     # The base role prompt is already active. Avoid a network
                     # session.update on ordinary turns; it adds latency and can
                     # race response.create. Only inject a non-empty RAG result.
-                    if compiled["rag_status"] == "ready":
+                    if compiled["mode"] != adapter.mode or compiled["rag_status"] == "ready":
                         await adapter.send({"type": "session.update", "session": {"instructions": compiled["prompt"]}})
+                        adapter.mode = compiled["mode"]
                     await adapter.send({"type": "response.create"})
                     event["rag_status"] = compiled["rag_status"]
                     event["turn_id"] = turn_id
