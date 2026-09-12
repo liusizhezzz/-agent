@@ -49,6 +49,16 @@ npm start
 
 ## Qwen Omni 语音适配
 
+生产后端入口是 `backend_agent`（FastAPI + SQLite/Postgres 可替换存储），Node 服务仅保留给旧版 UI 兼容。生产启动：
+
+```bash
+python3 -m pip install -r backend_agent/requirements.txt
+WUWANGWO_ENV_FILE=/path/to/forget-me-not-ad-screening/backend/.env.local \
+python3 -m backend_agent
+```
+
+后端提供 `GET /healthz`、`GET/POST /api/agents*`、`POST /api/sessions`、`WS /api/sessions/:id/audio`、`POST /api/sessions/:id/end`、`GET /api/sessions/:id/memory`、`GET /api/memories` 与 `PATCH /api/memories/:id/retention`。Qwen adapter 会在服务端建立一对一 Realtime 连接，浏览器永远不会接触 API Key。
+
 `qwen_service/server.py` 是项目内的 WebSocket 适配器，协议参考 WuWangWo 的 `fun-audiochat-realtime`，不会修改上游示例。先安装依赖并启动：
 
 ```bash
@@ -59,4 +69,4 @@ export FUN_REALTIME_MODEL=qwen-audio-3.0-realtime-plus
 python3 qwen_service/server.py
 ```
 
-密钥只从服务端环境读取；浏览器拿不到密钥。当前开发环境未提供 `DASHSCOPE_API_KEY` 与 `FUN_REALTIME_SPACE_ID`，因此本地可验证 UI、Prompt 和协议错误降级，真实语音需在部署环境完成冒烟验收。
+密钥只从服务端环境读取；浏览器拿不到密钥。设置 `WUWANGWO_ENV_FILE` 可直接复用既有 WuWangWo 服务端 env；本机未设置时会读取既有 `backend/.env.local`（只在服务端进程内使用，不会提交或打印）。Space ID 是可选覆盖项，模型沿用既有 Omni 配置。
