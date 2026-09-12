@@ -8,6 +8,7 @@ structured error so the UI can remain in text/demo mode.
 import asyncio
 import json
 import os
+import base64
 from urllib.parse import parse_qs, urlparse
 
 import websockets
@@ -42,10 +43,12 @@ async def proxy(browser):
     headers = {"Authorization": f"Bearer {API_KEY}", "X-DashScope-Space": SPACE_ID}
     try:
         async with websockets.connect(upstream, additional_headers=headers, max_size=None) as qwen:
-            await qwen.send(json.dumps({"type": "session.update", "session": {"instructions": _prompt(agent_id), "turn_detection": {"type": "server_vad", "silence_duration_ms": 1200}}}, ensure_ascii=False))
+            await qwen.send(json.dumps({"type": "session.update", "session": {"instructions": _prompt(agent_id), "turn_detection": {"type": "server_vad", "silence_duration_ms": 3500}}}, ensure_ascii=False))
 
             async def forward_in():
                 async for message in browser:
+                    if isinstance(message, bytes):
+                        message = json.dumps({"type": "input_audio_buffer.append", "audio": base64.b64encode(message).decode()})
                     await qwen.send(message)
 
             async def forward_out():
