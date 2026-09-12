@@ -1,0 +1,7 @@
+{
+  "name": "sleep-landing-mvp",
+  "version": "0.3.0",
+  "private": true,
+  "description": "眠舱 Sleep Landing full-stack MVP",
+  "scripts": { "dev": "node --watch server.js", "start": "node server.js" }
+}
