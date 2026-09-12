@@ -5,3 +5,6 @@ data/*.sqlite-*
 __pycache__/
 *.pyc
 node_modules/
+
+data/*.png
+data/server.log
