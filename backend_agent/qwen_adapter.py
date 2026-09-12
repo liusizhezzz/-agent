@@ -57,7 +57,7 @@ class QwenOmniRealtimeAdapter:
                 "turn_detection": {
                     "type": "server_vad",
                     "threshold": 0.25,
-                    "silence_duration_ms": 1800,
+                    "silence_duration_ms": 1000,
                     "prefix_padding_ms": 300,
                     "create_response": False,
                     "interrupt_response": True,
@@ -110,7 +110,7 @@ class QwenOmniRealtimeAdapter:
     async def compile_turn_prompt(self, turn_id: str, user_text: str, rag_loader) -> dict:
         try:
             rag = await asyncio.wait_for(rag_loader(user_text), timeout=self.rag_timeout)
-            rag_status = "ready"
+            rag_status = "ready" if rag else "empty"
         except asyncio.TimeoutError:
             rag, rag_status = "timeout_fallback", "timeout_fallback"
         prompt = compile_prompt(self.agent_id, user_text=user_text, rag=rag if rag_status == "ready" else "")
