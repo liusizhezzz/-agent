@@ -75,7 +75,8 @@ async def end_session(session_id: str, body: MemoryEnd, _: None = Depends(requir
     profile = get_profile(agent_id)
     source_text = body.source_text or store.transcript(session_id)
     summary, provider = await summarizer.summarize(source_text, body.summary or profile["representativeLine"])
-    memory = store.end_session(session_id, profile["id"], body.title, source_text, summary, body.category, body.retention)
+    title = body.title if body.title != "星球上的一件小东西" else profile["memoryObject"]["name"]
+    memory = store.end_session(session_id, profile["id"], title, source_text, summary, body.category, body.retention)
     return {"session_id": session_id, "status": "ended", "memory": memory, "summary_provider": provider}
 
 
