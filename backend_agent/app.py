@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from .config import load_settings
@@ -20,6 +20,11 @@ settings = load_settings()
 store = Store(settings.db_path)
 summarizer = MemorySummarizer(settings)
 app = FastAPI(title="微光星球 Agent Backend", version="1.0.0")
+
+
+def require_internal_token(authorization: str | None = Header(default=None)) -> None:
+    if settings.internal_token and authorization != f"Bearer {settings.internal_token}":
+        raise HTTPException(401, "unauthorized")
 
 
 class SessionCreate(BaseModel):
@@ -45,17 +50,17 @@ async def healthz() -> dict[str, Any]:
 
 
 @app.get("/api/agents")
-async def agents() -> dict[str, Any]:
+async def agents(_: None = Depends(require_internal_token)) -> dict[str, Any]:
     return {"agents": PROFILES}
 
 
 @app.post("/api/agents/recommend")
-async def agent_recommend(body: RecommendRequest) -> dict[str, Any]:
+async def agent_recommend(body: RecommendRequest, _: None = Depends(require_internal_token)) -> dict[str, Any]:
     return recommend(body.text)
 
 
 @app.post("/api/sessions", status_code=201)
-async def create_session(body: SessionCreate) -> dict[str, Any]:
+async def create_session(body: SessionCreate, _: None = Depends(require_internal_token)) -> dict[str, Any]:
     profile = get_profile(body.agent_id)
     sound = body.background_sound if body.background_sound in {"wind", "space", "rain", "none"} else profile["backgroundSound"]
     sid = store.create_session(profile["id"], sound)
@@ -63,18 +68,22 @@ async def create_session(body: SessionCreate) -> dict[str, Any]:
 
 
 @app.post("/api/sessions/{session_id}/end")
-async def end_session(session_id: str, body: MemoryEnd) -> dict[str, Any]:
+async def end_session(session_id: str, body: MemoryEnd, _: None = Depends(require_internal_token)) -> dict[str, Any]:
     agent_id = store.session_agent(session_id)
     if not agent_id:
         raise HTTPException(404, "session_not_found")
     profile = get_profile(agent_id)
-    summary, provider = await summarizer.summarize(body.source_text, body.summary or profile["representativeLine"])
-    memory = store.end_session(session_id, profile["id"], body.title, body.source_text, summary, body.category, body.retention)
+    source_text = body.source_text or store.transcript(session_id)
+    summary, provider = await summarizer.summarize(source_text, body.summary or profile["representativeLine"])
+    memory = store.end_session(session_id, profile["id"], body.title, source_text, summary, body.category, body.retention)
     return {"session_id": session_id, "status": "ended", "memory": memory, "summary_provider": provider}
 
 
 @app.websocket("/api/sessions/{session_id}/audio")
-async def audio_socket(websocket: WebSocket, session_id: str, agent_id: str = "soil") -> None:
+async def audio_socket(websocket: WebSocket, session_id: str, agent_id: str = "soil", token: str = "") -> None:
+    if settings.internal_token and token != settings.internal_token:
+        await websocket.close(code=4401)
+        return
     await websocket.accept()
     adapter = QwenOmniRealtimeAdapter(settings, agent_id=agent_id)
     try:
@@ -118,7 +127,7 @@ async def audio_socket(websocket: WebSocket, session_id: str, agent_id: str = "s
 
 
 @app.get("/api/memories/{memory_id}")
-async def memory(memory_id: str) -> dict[str, Any]:
+async def memory(memory_id: str, _: None = Depends(require_internal_token)) -> dict[str, Any]:
     row = store.db.execute("SELECT * FROM memories WHERE id=?", (memory_id,)).fetchone()
     if not row:
         raise HTTPException(404, "memory_not_found")
@@ -126,18 +135,18 @@ async def memory(memory_id: str) -> dict[str, Any]:
 
 
 @app.get("/api/sessions/{session_id}/memory")
-async def session_memory(session_id: str) -> dict[str, Any]:
+async def session_memory(session_id: str, _: None = Depends(require_internal_token)) -> dict[str, Any]:
     rows = store.db.execute("SELECT * FROM memories WHERE session_id=? ORDER BY created_at DESC", (session_id,)).fetchall()
     return {"memories": [dict(row) for row in rows]}
 
 
 @app.get("/api/memories")
-async def memories() -> dict[str, Any]:
+async def memories(_: None = Depends(require_internal_token)) -> dict[str, Any]:
     return {"memories": [dict(row) for row in store.db.execute("SELECT * FROM memories ORDER BY created_at DESC").fetchall()]}
 
 
 @app.patch("/api/memories/{memory_id}/retention")
-async def retention(memory_id: str, body: dict[str, str]) -> dict[str, Any]:
+async def retention(memory_id: str, body: dict[str, str], _: None = Depends(require_internal_token)) -> dict[str, Any]:
     value = body.get("retention", "pending")
     if value not in {"object", "stone", "discard", "pending"}:
         raise HTTPException(422, "invalid_retention")

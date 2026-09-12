@@ -26,6 +26,7 @@ class Settings:
     base_url: str
     qwen_max_model: str
     db_path: Path
+    internal_token: str = ""
     host: str = "0.0.0.0"
     port: int = 8180
 
@@ -59,6 +60,7 @@ def load_settings() -> Settings:
         base_url=value("FUN_REALTIME_BASE_URL", default="wss://dashscope.aliyuncs.com/api-ws/v1/realtime"),
         qwen_max_model=value("QWEN_MAX_MODEL", default="qwen-max"),
         db_path=Path(value("AGENT_DB_PATH", default="data/agent.sqlite")),
+        internal_token=value("AGENT_INTERNAL_TOKEN"),
         host=value("AGENT_HOST", default="0.0.0.0"),
         port=int(value("AGENT_PORT", default="8180")),
     )

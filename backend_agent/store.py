@@ -33,5 +33,9 @@ class Store:
         row = self.db.execute("SELECT agent_id FROM sessions WHERE id=?", (session_id,)).fetchone()
         return row[0] if row else None
 
+    def transcript(self, session_id: str) -> str:
+        rows = self.db.execute("SELECT user_text FROM turns WHERE session_id=? ORDER BY created_at", (session_id,)).fetchall()
+        return "\n".join(row[0] for row in rows if row[0])
+
     def end_session(self, session_id: str, agent_id: str, title: str, source: str, summary: str, category: str, retention: str) -> dict:
         mid = str(uuid.uuid4()); self.db.execute("INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)", (mid, session_id, agent_id, title, source, summary, category, retention, now())); self.db.execute("UPDATE sessions SET status='ended',ended_at=? WHERE id=?", (now(), session_id)); self.db.commit(); return dict(self.db.execute("SELECT * FROM memories WHERE id=?", (mid,)).fetchone())
