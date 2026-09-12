@@ -97,6 +97,11 @@ async def audio_socket(websocket: WebSocket, session_id: str, agent_id: str = "s
 
         async def upstream() -> None:
             async for event in adapter.events():
+                # Barge-in: stop any in-flight response as soon as Qwen's VAD
+                # detects speech. The final ASR event below creates exactly one
+                # replacement response for the new turn.
+                if event.get("type") == "input_audio_buffer.speech_started":
+                    await adapter.cancel_response()
                 if event.get("type") == "conversation.item.input_audio_transcription.completed":
                     text = str(event.get("transcript") or event.get("text") or "").strip()
                     turn_id = event.get("turn_id") or "turn_unknown"
@@ -115,7 +120,17 @@ async def audio_socket(websocket: WebSocket, session_id: str, agent_id: str = "s
             if message.get("bytes") is not None:
                 await adapter.send_pcm(message["bytes"])
             elif message.get("text"):
-                await adapter.send(__import__("json").loads(message["text"]))
+                event = __import__("json").loads(message["text"])
+                # Text turns are already final user input. Persist them for the
+                # session transcript while audio turns remain gated on Final ASR.
+                if event.get("type") == "conversation.item.create":
+                    item = event.get("item") or {}
+                    content = item.get("content") or []
+                    text_parts = [str(part.get("text") or "").strip() for part in content if part.get("type") == "input_text"]
+                    text = " ".join(part for part in text_parts if part)
+                    if text:
+                        store.add_turn(session_id, text, final_asr=True, rag_status="text_input")
+                await adapter.send(event)
     except WebSocketDisconnect:
         pass
     except Exception as exc:

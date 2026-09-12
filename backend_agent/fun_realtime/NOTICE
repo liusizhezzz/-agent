@@ -1,0 +1,4 @@
+This directory vendors the minimal RealtimeClient protocol layer adapted from
+Alibaba Qwen Voice Agent Framework's fun-audiochat-realtime sample.
+Upstream: https://github.com/QwenLM/Qwen3-Omni
+License: Apache-2.0 (see upstream LICENSE).
