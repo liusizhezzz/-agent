@@ -77,6 +77,13 @@ class QwenOmniRealtimeAdapter:
         if not self.client:
             raise RuntimeError("QWEN_NOT_CONNECTED")
         event.setdefault("event_id", f"evt_{uuid.uuid4().hex}")
+        # Mark immediately when a response request is sent so an early VAD
+        # speech_started event can cancel the in-flight request before the
+        # provider emits response.created.
+        if event.get("type") == "response.create":
+            self.response_active = True
+        elif event.get("type") in {"response.cancel", "response.done", "response.cancelled"}:
+            self.response_active = False
         await self.client.send_event(event)
 
     async def send_pcm(self, pcm: bytes) -> None:
